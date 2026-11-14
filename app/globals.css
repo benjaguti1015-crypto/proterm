@@ -1,0 +1,255 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+  --font-cond: var(--font-barlow-cond), var(--font-barlow), ui-sans-serif, sans-serif;
+}
+
+@theme {
+  /* Base sobria: aluminio, papel y tinta azul petróleo. */
+  --color-fondo: #e9ecef;
+  --color-papel: #ffffff;
+  --color-tinta: #0f2a3d;
+  --color-tinta-2: #4b5b69;
+  --color-linea: #cfd6dc;
+  --color-marcado: #f1f4f6;
+
+  /* Verde y rojo se usan solo para el estado de un equipo. */
+  --color-libre: #17713a;
+  --color-libre-fondo: #e2f2e6;
+  --color-uso: #b3261e;
+  --color-uso-fondo: #fbe8e5;
+
+  /* Advertencias (obligatorios faltantes). */
+  --color-aviso: #6f4500;
+  --color-aviso-fondo: #ffefc2;
+
+  --ease-salida: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-fondo);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.45;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-tinta);
+  outline-offset: 2px;
+}
+
+@layer components {
+  /* Botones: grandes, para usar con guantes. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3.75rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.75rem;
+    font-size: 1.1875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      transform 140ms var(--ease-salida),
+      background-color 140ms ease,
+      opacity 140ms ease;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .btn-primario {
+    background: var(--color-tinta);
+    color: #ffffff;
+  }
+
+  .btn-secundario {
+    background: var(--color-papel);
+    color: var(--color-tinta);
+    box-shadow: inset 0 0 0 2px var(--color-tinta);
+  }
+
+  .btn-chico {
+    min-height: 2.75rem;
+    padding: 0.375rem 0.875rem;
+    border-radius: 0.625rem;
+    font-size: 1rem;
+  }
+
+  /* Código de equipo, como la placa pegada en el instrumento. */
+  .placa {
+    display: inline-block;
+    padding: 0.0625rem 0.4375rem 0;
+    border: 1.5px solid var(--color-tinta);
+    border-radius: 0.25rem;
+    background: var(--color-papel);
+    font-family: var(--font-cond);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1.35;
+    white-space: nowrap;
+  }
+
+  .campo {
+    width: 100%;
+    min-height: 3.75rem;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--color-tinta-2);
+    border-radius: 0.75rem;
+    background: var(--color-papel);
+    color: var(--color-tinta);
+    font-size: 1.1875rem;
+  }
+
+  .campo::placeholder {
+    color: var(--color-tinta-2);
+    opacity: 0.8;
+  }
+
+  .campo:focus-visible {
+    border-color: var(--color-tinta);
+    outline-offset: 0;
+  }
+
+  /* Filtros en forma de chip. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0.25rem 1rem;
+    border-radius: 999px;
+    background: var(--color-papel);
+    box-shadow: inset 0 0 0 1.5px var(--color-linea);
+    color: var(--color-tinta);
+    font-size: 1rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      transform 140ms var(--ease-salida),
+      background-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .chip:active {
+    transform: scale(0.97);
+  }
+
+  .chip[aria-pressed="true"] {
+    background: var(--color-tinta);
+    box-shadow: none;
+    color: #ffffff;
+  }
+
+  /* Casilla grande de las listas de equipos. */
+  .casilla {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    border: 2px solid var(--color-tinta);
+    border-radius: 0.375rem;
+    background: var(--color-papel);
+    color: #ffffff;
+    transition: background-color 120ms ease;
+  }
+
+  .casilla svg {
+    opacity: 0;
+    transform: scale(0.8);
+    transition:
+      opacity 120ms ease,
+      transform 160ms var(--ease-salida);
+  }
+
+  .casilla[data-marcada="true"] {
+    background: var(--color-tinta);
+  }
+
+  .casilla[data-marcada="true"] svg {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .casilla[data-bloqueada="true"] {
+    border-color: var(--color-linea);
+    background: var(--color-fondo);
+  }
+
+  /* Hoja de confirmación que sube desde abajo. */
+  .hoja-fondo {
+    background: rgb(15 42 61 / 0.55);
+    transition: opacity 200ms ease;
+
+    @starting-style {
+      opacity: 0;
+    }
+  }
+
+  .hoja {
+    transition:
+      transform 260ms var(--ease-salida),
+      opacity 200ms ease;
+
+    @starting-style {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+  }
+
+  /* Panel: la fila que acaba de cambiar de estado se destaca un momento. */
+  .fila-cambio {
+    animation: destello 2.4s ease-out;
+  }
+}
+
+@keyframes destello {
+  0%,
+  25% {
+    background-color: var(--color-aviso-fondo);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .chip,
+  .casilla svg,
+  .hoja {
+    transition-property: opacity, background-color, color;
+  }
+
+  .btn:active:not(:disabled),
+  .chip:active {
+    transform: none;
+  }
+
+  .hoja {
+    @starting-style {
+      transform: none;
+    }
+  }
+}
