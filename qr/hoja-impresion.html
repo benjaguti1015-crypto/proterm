@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<title>QR de furgones ProTerm</title>
+<style>
+  @page { size: A4 portrait; margin: 12mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+    color: #000;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .hoja {
+    width: 186mm;
+    height: 268mm;
+    margin: 0 auto;
+    display: grid;
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    gap: 6mm;
+  }
+  .tarjeta {
+    display: grid;
+    grid-template-columns: 74mm 1fr;
+    align-items: center;
+    gap: 10mm;
+    padding: 4mm 8mm;
+    border: 1.2mm solid #000;
+    border-radius: 5mm;
+    break-inside: avoid;
+  }
+  .tarjeta img { width: 74mm; height: 74mm; display: block; }
+  .etiqueta { font-size: 17mm; font-weight: 700; line-height: 1; white-space: nowrap; }
+  .etiqueta span { display: block; font-size: 28mm; line-height: 0.95; }
+  .instruccion { margin-top: 4mm; font-size: 7.5mm; line-height: 1.2; }
+  .url { margin-top: 4mm; font-size: 3.4mm; word-break: break-all; }
+  @media screen {
+    body { background: #e9ecef; padding: 10mm 0; }
+    .hoja { background: #fff; padding: 0; outline: 12mm solid #fff; }
+  }
+</style>
+</head>
+<body>
+<div class="hoja">
+  <section class="tarjeta">
+    <img src="furgon-1.png" alt="Código QR del furgón 1">
+    <div>
+      <div class="etiqueta">FURGÓN <span>1</span></div>
+      <div class="instruccion">Escanea para registrar tu salida</div>
+      <div class="url">https://proterm.vercel.app/f/furgon-1</div>
+    </div>
+  </section>
+  <section class="tarjeta">
+    <img src="furgon-2.png" alt="Código QR del furgón 2">
+    <div>
+      <div class="etiqueta">FURGÓN <span>2</span></div>
+      <div class="instruccion">Escanea para registrar tu salida</div>
+      <div class="url">https://proterm.vercel.app/f/furgon-2</div>
+    </div>
+  </section>
+  <section class="tarjeta">
+    <img src="furgon-3.png" alt="Código QR del furgón 3">
+    <div>
+      <div class="etiqueta">FURGÓN <span>3</span></div>
+      <div class="instruccion">Escanea para registrar tu salida</div>
+      <div class="url">https://proterm.vercel.app/f/furgon-3</div>
+    </div>
+  </section>
+</div>
+</body>
+</html>
