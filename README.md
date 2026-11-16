@@ -101,7 +101,9 @@ npm run dev
 - **Certificados.** Cada equipo guarda número de certificado, laboratorio y el PDF (hasta 4 MB)
   en el bucket privado `certificados`. `/certificados/[codigo]` lo abre con un enlace temporal
   de 10 minutos. Al reemplazar un PDF, el anterior queda guardado en Storage.
-  `docs/certificado-ejemplo.pdf` es un certificado ficticio para probar la carga.
+  En `docs/certificados-ejemplo/` hay certificados ficticios (marcados "sin validez") para
+  RU-SON-001, RU-SON-002, RU-CAL-001, RU-CAL-002, PM-GAS-001, PM-GAS-002 y PM-PIT-001, con
+  los mismos números y laboratorios del seed. Se suben desde `/equipos`.
 - **Reemplazo sugerido.** Si una unidad está en uso o vencida, la app sugiere la siguiente del
   mismo tipo. Si el servidor rechaza la salida, marca el reemplazo automáticamente y avisa.
 - **Selección de equipos.** Primero los obligatorios agrupados por tipo, con su avance
