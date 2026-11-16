@@ -3,6 +3,7 @@ import { Encabezado } from "@/components/Encabezado";
 import { exigirContexto } from "@/lib/contexto";
 import {
   contarKits,
+  esAdmin,
   obtenerItemsSalida,
   obtenerSalidaAbierta,
   obtenerServicios,
@@ -18,7 +19,10 @@ const AVISOS: Record<string, string> = {
 export default async function Inicio({ searchParams }: PageProps<"/">) {
   const { sesion, furgon } = await exigirContexto();
   const { aviso } = await searchParams;
-  const salida = await obtenerSalidaAbierta(furgon.id);
+  const [salida, admin] = await Promise.all([
+    obtenerSalidaAbierta(furgon.id),
+    esAdmin(sesion.id),
+  ]);
   const mensaje = typeof aviso === "string" ? AVISOS[aviso] : undefined;
 
   return (
@@ -48,10 +52,15 @@ export default async function Inicio({ searchParams }: PageProps<"/">) {
 
         {salida ? <SalidaEnCurso salida={salida} /> : <Servicios furgon={furgon} />}
 
-        <p className="mt-10 text-center">
+        <p className="mt-10 flex flex-col items-center gap-4 text-center">
           <Link href="/panel" className="font-medium underline underline-offset-4">
             Ver dónde está cada equipo
           </Link>
+          {admin ? (
+            <Link href="/equipos" className="font-medium underline underline-offset-4">
+              Editar calibraciones
+            </Link>
+          ) : null}
         </p>
       </main>
     </>

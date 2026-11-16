@@ -4,8 +4,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { confirmarSalida } from "@/lib/acciones";
 import { fechaCorta } from "@/lib/fechas";
-import { obligatoriosFaltantes, preseleccion } from "@/lib/obligatorios";
-import { CATEGORIAS, type Categoria, type Conflicto, type EquipoKit } from "@/lib/tipos";
+import { obligatoriosFaltantes, preseleccion, puedeSalir } from "@/lib/obligatorios";
+import {
+  CATEGORIAS,
+  type Categoria,
+  type Conflicto,
+  type EquipoKit,
+  type VencidoRechazado,
+} from "@/lib/tipos";
 import { Check, Estado } from "./Estado";
 
 type Filtro = "Todos" | Categoria;
@@ -31,20 +37,21 @@ export function SelectorEquipos({
   fechaInicial: string;
 }) {
   const router = useRouter();
-  const [marcados, setMarcados] = useState<Set<number>>(() => new Set(preseleccion(kit)));
+  const [marcados, setMarcados] = useState<Set<number>>(() => new Set(preseleccion(kit, hoy)));
   const [filtro, setFiltro] = useState<Filtro>("Todos");
   const [busqueda, setBusqueda] = useState("");
   const [fecha, setFecha] = useState(fechaInicial);
   const [faltantes, setFaltantes] = useState<string[] | null>(null);
   const [conflictos, setConflictos] = useState<Conflicto[] | null>(null);
+  const [vencidos, setVencidos] = useState<VencidoRechazado[] | null>(null);
   const [error, setError] = useState("");
   const [enviando, iniciar] = useTransition();
   const avisoConflicto = useRef<HTMLDivElement>(null);
 
-  // Si un equipo marcado pasó a estar en uso, deja de contar.
+  // Si un equipo marcado pasó a estar en uso o se le venció la calibración, deja de contar.
   const seleccion = useMemo(
-    () => kit.filter((e) => marcados.has(e.id) && !e.en_uso).map((e) => e.id),
-    [kit, marcados],
+    () => kit.filter((e) => marcados.has(e.id) && puedeSalir(e, hoy)).map((e) => e.id),
+    [kit, marcados, hoy],
   );
 
   const visibles = useMemo(() => {
@@ -65,8 +72,8 @@ export function SelectorEquipos({
   }, [kit, filtro, busqueda]);
 
   useEffect(() => {
-    if (conflictos) avisoConflicto.current?.scrollIntoView({ block: "center" });
-  }, [conflictos]);
+    if (conflictos || vencidos) avisoConflicto.current?.scrollIntoView({ block: "center" });
+  }, [conflictos, vencidos]);
 
   useEffect(() => {
     if (!faltantes) return;
@@ -78,7 +85,7 @@ export function SelectorEquipos({
   }, [faltantes]);
 
   function alternar(equipo: EquipoKit) {
-    if (equipo.en_uso) return;
+    if (!puedeSalir(equipo, hoy)) return;
     setMarcados((previos) => {
       const siguiente = new Set(previos);
       if (siguiente.has(equipo.id)) siguiente.delete(equipo.id);
@@ -90,6 +97,7 @@ export function SelectorEquipos({
   function enviar(confirmaFaltantes: boolean) {
     setError("");
     setConflictos(null);
+    setVencidos(null);
 
     const sinCubrir = obligatoriosFaltantes(kit, seleccion);
     if (sinCubrir.length > 0 && !confirmaFaltantes) {
@@ -112,6 +120,9 @@ export function SelectorEquipos({
         setFaltantes(resultado.faltantes);
       } else if (resultado.tipo === "conflicto") {
         setConflictos(resultado.conflictos);
+        router.refresh();
+      } else if (resultado.tipo === "vencidos") {
+        setVencidos(resultado.vencidos);
         router.refresh();
       } else {
         setError(resultado.mensaje);
@@ -141,6 +152,32 @@ export function SelectorEquipos({
                 <span className="font-semibold">{c.nombre}</span>
                 <br />
                 {c.furgon_nombre}, por {c.responsable}, vuelve {fechaCorta(c.fecha_retorno_estimada)}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 font-medium">Ya quedaron desmarcados. Revisa la lista y confirma de nuevo.</p>
+        </div>
+      ) : null}
+
+      {vencidos ? (
+        <div
+          ref={conflictos ? undefined : avisoConflicto}
+          role="alert"
+          className="mt-4 rounded-2xl bg-uso-fondo p-4 text-uso"
+        >
+          <p className="text-lg font-bold">No se guardó la salida</p>
+          <p className="mt-1 font-medium">
+            {vencidos.length === 1
+              ? "Este equipo tiene la calibración vencida y no puede salir a terreno:"
+              : "Estos equipos tienen la calibración vencida y no pueden salir a terreno:"}
+          </p>
+          <ul className="mt-3 grid gap-2">
+            {vencidos.map((v) => (
+              <li key={v.codigo} className="leading-snug">
+                <span className="placa mr-2 border-uso">{v.codigo}</span>
+                <span className="font-semibold">{v.nombre}</span>
+                <br />
+                Venció el {fechaCorta(v.fecha_vencimiento)}
               </li>
             ))}
           </ul>
@@ -182,29 +219,30 @@ export function SelectorEquipos({
       ) : (
         <ul className="mt-4 divide-y divide-linea overflow-hidden rounded-2xl bg-papel">
           {visibles.map((equipo) => {
-            const marcado = !equipo.en_uso && marcados.has(equipo.id);
+            const bloqueado = !puedeSalir(equipo, hoy);
+            const marcado = !bloqueado && marcados.has(equipo.id);
             return (
               <li key={equipo.id}>
                 <button
                   type="button"
                   role="checkbox"
                   aria-checked={marcado}
-                  aria-disabled={equipo.en_uso}
+                  aria-disabled={bloqueado}
                   onClick={() => alternar(equipo)}
                   className={`flex w-full items-start gap-4 px-4 py-4 text-left transition-colors duration-150 ${
-                    equipo.en_uso ? "cursor-not-allowed" : "cursor-pointer"
+                    bloqueado ? "cursor-not-allowed" : "cursor-pointer"
                   } ${marcado ? "bg-marcado" : ""}`}
                 >
                   <span
                     className="casilla mt-0.5"
                     data-marcada={marcado}
-                    data-bloqueada={equipo.en_uso}
+                    data-bloqueada={bloqueado}
                   >
                     <Check />
                   </span>
                   <span className="grid min-w-0 flex-1 gap-1.5">
                     <span
-                      className={`text-lg font-semibold leading-snug ${equipo.en_uso ? "text-tinta-2" : ""}`}
+                      className={`text-lg font-semibold leading-snug ${bloqueado ? "text-tinta-2" : ""}`}
                     >
                       {equipo.nombre}
                     </span>
@@ -215,7 +253,7 @@ export function SelectorEquipos({
                         <span className="font-semibold text-tinta">Obligatorio</span>
                       ) : null}
                     </span>
-                    <Estado equipo={equipo} />
+                    <Estado equipo={equipo} hoy={hoy} />
                   </span>
                 </button>
               </li>
@@ -281,16 +319,21 @@ export function SelectorEquipos({
             <ul className="mt-4 grid gap-2 rounded-xl bg-aviso-fondo px-4 py-3 text-aviso">
               {faltantes.map((nombre) => {
                 const unidades = kit.filter((e) => e.nombre === nombre);
-                const sinStock = unidades.every((e) => e.en_uso);
+                const sinStock = unidades.every((e) => !puedeSalir(e, hoy));
+                const algunaVencida = unidades.some((e) => !e.en_uso && !puedeSalir(e, hoy));
                 return (
                   <li key={nombre} className="leading-snug">
                     <span className="font-bold">{nombre}</span>
                     <br />
-                    {sinStock
-                      ? unidades.length === 1
-                        ? "Está en uso en otro furgón."
-                        : "Todas las unidades están en uso."
-                      : "Está disponible, pero no lo marcaste."}
+                    {!sinStock
+                      ? "Está disponible, pero no lo marcaste."
+                      : unidades.length === 1
+                        ? algunaVencida
+                          ? "Tiene la calibración vencida."
+                          : "Está en uso en otro furgón."
+                        : algunaVencida
+                          ? "No queda ninguna unidad disponible: están en uso o con la calibración vencida."
+                          : "Todas las unidades están en uso."}
                   </li>
                 );
               })}

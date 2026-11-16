@@ -13,6 +13,8 @@ Next.js (App Router) + TypeScript + Tailwind, con Supabase (Postgres) y deploy e
 3. En el inicio elige el servicio, marca los equipos que se lleva, pone la fecha estimada de retorno y confirma la salida.
 4. Al volver, entra a "Devolver equipos" y marca lo que devuelve. Puede ser parcial. Cuando devuelve todo, la salida se cierra.
 5. `/panel` es público y muestra dónde está cada equipo. Se refresca solo cada 10 segundos.
+6. `/equipos` permite a los administradores actualizar las fechas de calibración. Un equipo con
+   la calibración vencida no puede salir a terreno.
 
 ## Puesta en marcha
 
@@ -21,7 +23,15 @@ Next.js (App Router) + TypeScript + Tailwind, con Supabase (Postgres) y deploy e
 En el SQL Editor de Supabase, correr en este orden:
 
 1. `supabase/migrations/0001_inicial.sql`: tablas, vistas, funciones y permisos.
-2. `supabase/seed.sql`: datos de ejemplo.
+2. `supabase/migrations/0002_calibracion.sql`: calibración de equipos y administradores.
+3. `supabase/seed.sql`: datos de ejemplo.
+
+Para que alguien pueda editar calibraciones, márcalo como administrador
+(después de que haya entrado una vez a la app):
+
+```sql
+update usuarios set es_admin = true where lower(nombre) = lower('Benja');
+```
 
 `seed.sql` borra todo y deja la demo en su estado inicial, así que se puede volver
 a correr para reiniciar antes de grabar. No usarlo sobre datos reales.
@@ -67,7 +77,9 @@ npm run dev
 
 - Furgones 1, 2 y 3.
 - Servicios: Material particulado (isocinético) y Ruido (acústica).
-- Usuarios Pedro y Juanito, ambos con PIN `1234`.
+- Usuarios Pedro y Juanito, ambos con PIN `1234`. Pedro es administrador.
+- Calibraciones: `PM-GAS-002` vencida hace 5 días, `RU-SON-002` vence en 12 días, el resto
+  de los equipos de medición al día. Los accesorios no tienen fechas.
 - Salidas abiertas, para que el conflicto se vea de inmediato:
   - Furgón 2, por Pedro: `PM-CON-001` y `PM-GAS-001`, vuelve mañana.
   - Furgón 3, por Juanito: `RU-SON-001` y `RU-CAL-001`, vuelve en 2 días.
@@ -89,7 +101,9 @@ npm run dev
   basta con llevar uno. Si falta un tipo obligatorio, la app avisa y pide confirmación.
 - **Sesión.** Cookie firmada con el nombre del responsable. El PIN se guarda con hash
   (bcryptjs). No es seguridad real: solo identifica a quien registra.
-- **Fase 2.** `equipos` ya tiene `fecha_vencimiento` y `fecha_calibracion`, sin uso en la app.
+- **Calibración.** `fecha_calibracion` es la última calibración y `fecha_vencimiento` hasta
+  cuándo es válida (inclusive). Un equipo vencido aparece bloqueado al elegir equipos, y
+  `crear_salida` lo rechaza también en la base de datos. Se avisa 30 días antes del vencimiento.
 
 ## Estructura
 
@@ -102,6 +116,7 @@ app/
   salida/[servicioId]/      Selección de equipos
   devolver/                 Checklist de devolución
   panel/                    Tabla pública
+  equipos/                  Calibraciones (solo administradores)
   api/panel/route.ts        Datos para el refresco del panel
 components/                 Piezas de interfaz
 lib/                        Supabase, sesión, consultas y acciones de servidor

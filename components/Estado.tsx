@@ -1,3 +1,4 @@
+import { estadoCalibracion, textoCalibracion } from "@/lib/calibracion";
 import { fechaCorta } from "@/lib/fechas";
 import type { EquipoEstado } from "@/lib/tipos";
 
@@ -10,21 +11,63 @@ export function detalleUso(equipo: EquipoEstado): string {
   return partes.join(", ");
 }
 
-/** Estado de un equipo: verde si está disponible, rojo si está en uso. */
-export function Estado({ equipo }: { equipo: EquipoEstado }) {
-  if (!equipo.en_uso) {
-    return (
-      <span className="inline-flex items-center gap-2 font-semibold text-libre">
-        <span aria-hidden className="size-2.5 flex-none rounded-full bg-libre" />
+function Punto({ color }: { color: "libre" | "uso" }) {
+  return (
+    <span
+      aria-hidden
+      className={`size-2.5 flex-none translate-y-[-1px] rounded-full ${color === "libre" ? "bg-libre" : "bg-uso"}`}
+    />
+  );
+}
+
+/**
+ * Estado de un equipo: verde si puede salir, rojo si está en uso o tiene
+ * la calibración vencida. Si la calibración está por vencer, lo avisa debajo.
+ */
+export function Estado({ equipo, hoy }: { equipo: EquipoEstado; hoy: string }) {
+  const calibracion = estadoCalibracion(equipo.fecha_vencimiento, hoy);
+  const vencida = calibracion.tipo === "vencida";
+
+  let principal;
+  if (equipo.en_uso) {
+    principal = (
+      <span className="inline-flex items-baseline gap-2 font-semibold text-uso">
+        <Punto color="uso" />
+        <span>En uso: {detalleUso(equipo)}</span>
+      </span>
+    );
+  } else if (vencida) {
+    principal = (
+      <span className="inline-flex items-baseline gap-2 font-semibold text-uso">
+        <Punto color="uso" />
+        <span>No disponible: {textoCalibracion(calibracion).toLowerCase()}</span>
+      </span>
+    );
+  } else {
+    principal = (
+      <span className="inline-flex items-baseline gap-2 font-semibold text-libre">
+        <Punto color="libre" />
         Disponible
       </span>
     );
   }
 
+  // Segunda línea: solo si hay algo que avisar sobre la calibración.
+  let aviso = null;
+  if (calibracion.tipo === "por_vencer") {
+    aviso = (
+      <span className="w-fit rounded-md bg-aviso-fondo px-2 py-0.5 font-medium text-aviso">
+        {textoCalibracion(calibracion)}
+      </span>
+    );
+  } else if (vencida && equipo.en_uso) {
+    aviso = <span className="font-medium text-uso">{textoCalibracion(calibracion)}</span>;
+  }
+
   return (
-    <span className="inline-flex items-baseline gap-2 font-semibold text-uso">
-      <span aria-hidden className="size-2.5 flex-none translate-y-[-1px] rounded-full bg-uso" />
-      <span>En uso: {detalleUso(equipo)}</span>
+    <span className="grid gap-1">
+      {principal}
+      {aviso}
     </span>
   );
 }

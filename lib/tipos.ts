@@ -24,6 +24,8 @@ export type EquipoEstado = {
   furgon_nombre: string | null;
   responsable: string | null;
   fecha_retorno_estimada: string | null;
+  fecha_calibracion: string | null;
+  fecha_vencimiento: string | null;
 };
 
 export type EquipoKit = EquipoEstado & { obligatorio: boolean };
@@ -62,4 +64,10 @@ export type Conflicto = {
 export type Sesion = {
   id: number;
   nombre: string;
+};
+
+export type VencidoRechazado = {
+  codigo: string;
+  nombre: string;
+  fecha_vencimiento: string;
 };

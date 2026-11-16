@@ -1,14 +1,20 @@
-import type { EquipoKit } from "./tipos";
+import { estaVencida } from "./calibracion";
+import type { EquipoEstado, EquipoKit } from "./tipos";
+
+/** Un equipo puede salir si no está en uso y su calibración no está vencida. */
+export function puedeSalir(equipo: EquipoEstado, hoy: string): boolean {
+  return !equipo.en_uso && !estaVencida(equipo.fecha_vencimiento, hoy);
+}
 
 // Un requisito obligatorio es un tipo de equipo, no una unidad puntual:
 // si el kit tiene dos sonómetros marcados como obligatorios, basta con
 // llevar uno. Las unidades del mismo tipo comparten nombre.
 
 /** Equipos obligatorios que conviene dejar marcados al abrir la lista. */
-export function preseleccion(kit: EquipoKit[]): number[] {
+export function preseleccion(kit: EquipoKit[], hoy: string): number[] {
   const porTipo = new Map<string, EquipoKit>();
   for (const equipo of [...kit].sort((a, b) => a.codigo.localeCompare(b.codigo))) {
-    if (equipo.obligatorio && !equipo.en_uso && !porTipo.has(equipo.nombre)) {
+    if (equipo.obligatorio && puedeSalir(equipo, hoy) && !porTipo.has(equipo.nombre)) {
       porTipo.set(equipo.nombre, equipo);
     }
   }

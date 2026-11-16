@@ -1,6 +1,8 @@
 -- ProTerm: datos de ejemplo (ficticios).
 -- Correr en el SQL Editor de Supabase después de la migración.
 --
+-- Requiere haber corrido las migraciones 0001 y 0002.
+--
 -- OJO: este script BORRA todo lo que haya en las tablas y deja la demo
 -- en su estado inicial. Sirve para reiniciar antes de grabar el video.
 
@@ -43,6 +45,29 @@ insert into equipos (codigo, nombre, categoria) values
   ('GEN-GPS-001', 'GPS', 'Accesorios'),
   ('GEN-HUI-001', 'Huincha / medidor láser', 'Accesorios');
 
+-- Calibraciones de ejemplo, relativas a hoy (hora de Chile).
+-- Los accesorios no se calibran y quedan sin fechas.
+-- Vigentes: calibrados hace unos 5 meses, válidos por un año.
+update equipos
+set
+  fecha_calibracion = (now() at time zone 'America/Santiago')::date - 150,
+  fecha_vencimiento = (now() at time zone 'America/Santiago')::date + 215
+where categoria = 'Medición' or codigo in ('PM-CON-001', 'PM-BOQ-001', 'PM-PIT-001');
+
+-- Vencido hace 5 días: no puede salir a terreno.
+update equipos
+set
+  fecha_calibracion = (now() at time zone 'America/Santiago')::date - 370,
+  fecha_vencimiento = (now() at time zone 'America/Santiago')::date - 5
+where codigo = 'PM-GAS-002';
+
+-- Por vencer: le quedan 12 días.
+update equipos
+set
+  fecha_calibracion = (now() at time zone 'America/Santiago')::date - 353,
+  fecha_vencimiento = (now() at time zone 'America/Santiago')::date + 12
+where codigo = 'RU-SON-002';
+
 -- Kit de material particulado: equipos PM + compartidos.
 -- Obligatorios: consola, sonda, boquillas, Pitot y analizador de gases.
 insert into kit_servicio (servicio_id, equipo_id, obligatorio)
@@ -64,9 +89,10 @@ from equipos e
 where e.codigo like 'RU-%' or e.codigo like 'GEN-%';
 
 -- Usuarios de ejemplo. El PIN de ambos es 1234.
-insert into usuarios (nombre, pin_hash) values
-  ('Pedro', '$2b$10$kgpmbcn8rE6qUwyZAma.0Okphln.r.ZB7aggtGKufLR9NrT8JuHOy'),
-  ('Juanito', '$2b$10$kgpmbcn8rE6qUwyZAma.0Okphln.r.ZB7aggtGKufLR9NrT8JuHOy');
+-- Pedro es administrador: puede editar las calibraciones en /equipos.
+insert into usuarios (nombre, pin_hash, es_admin) values
+  ('Pedro', '$2b$10$kgpmbcn8rE6qUwyZAma.0Okphln.r.ZB7aggtGKufLR9NrT8JuHOy', true),
+  ('Juanito', '$2b$10$kgpmbcn8rE6qUwyZAma.0Okphln.r.ZB7aggtGKufLR9NrT8JuHOy', false);
 
 -- Salidas abiertas de ejemplo, para que el conflicto se vea de inmediato.
 

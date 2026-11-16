@@ -20,6 +20,9 @@ function tipoDeClave(clave: string): string {
 
 function pista(mensaje: string): string {
   const m = mensaje.toLowerCase();
+  if (m.includes("es_admin") || m.includes("fecha_vencimiento")) {
+    return "Falta correr supabase/migrations/0002_calibracion.sql en el SQL Editor de Supabase.";
+  }
   if (m.includes("could not find the table") || m.includes("does not exist") || m.includes("schema cache")) {
     return "Falta correr supabase/migrations/0001_inicial.sql en el SQL Editor de Supabase.";
   }
@@ -61,7 +64,7 @@ export async function GET() {
       const [furgones, equipos, usuarios] = await Promise.all([
         supabase().from("furgones").select("id"),
         supabase().from("equipos_estado").select("id"),
-        supabase().from("usuarios").select("id"),
+        supabase().from("usuarios").select("id, es_admin"),
       ]);
       const error = furgones.error ?? equipos.error ?? usuarios.error;
       const cantidad = {

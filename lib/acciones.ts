@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  esAdmin,
   obtenerFurgonPorCodigo,
   obtenerKit,
   obtenerSalidaAbierta,
@@ -18,7 +19,7 @@ import {
   leerSesion,
 } from "./sesion";
 import { supabase } from "./supabase";
-import type { Conflicto } from "./tipos";
+import type { Conflicto, VencidoRechazado } from "./tipos";
 
 // ---------------------------------------------------------------
 // Login
@@ -108,6 +109,7 @@ export async function elegirFurgon(formData: FormData): Promise<void> {
 export type ResultadoSalida =
   | { tipo: "faltantes"; faltantes: string[] }
   | { tipo: "conflicto"; conflictos: Conflicto[] }
+  | { tipo: "vencidos"; vencidos: VencidoRechazado[] }
   | { tipo: "error"; mensaje: string };
 
 export async function confirmarSalida(entrada: {
@@ -154,6 +156,9 @@ export async function confirmarSalida(entrada: {
       case "conflicto":
         revalidatePath("/salida/[servicioId]", "page");
         return { tipo: "conflicto", conflictos: data.conflictos as Conflicto[] };
+      case "vencidos":
+        revalidatePath("/salida/[servicioId]", "page");
+        return { tipo: "vencidos", vencidos: data.vencidos as VencidoRechazado[] };
       case "furgon_ocupado":
         return {
           tipo: "error",
@@ -210,4 +215,50 @@ export async function devolverEquipos(entrada: {
 
   revalidatePath("/devolver");
   return { tipo: "parcial", devueltos: equipoIds.length, pendientes: data.pendientes };
+}
+
+// ---------------------------------------------------------------
+// Calibración (solo administradores)
+// ---------------------------------------------------------------
+
+export type ResultadoCalibracion = { ok: true } | { ok: false; mensaje: string };
+
+export async function actualizarCalibracion(entrada: {
+  equipoId: number;
+  fechaCalibracion: string;
+  fechaVencimiento: string;
+}): Promise<ResultadoCalibracion> {
+  const sesion = await leerSesion();
+  if (!sesion) return { ok: false, mensaje: "Tu sesión se cerró. Vuelve a entrar." };
+  if (!(await esAdmin(sesion.id))) {
+    return { ok: false, mensaje: "Solo un administrador puede editar calibraciones." };
+  }
+
+  const calibracion = entrada.fechaCalibracion.trim();
+  const vencimiento = entrada.fechaVencimiento.trim();
+
+  if (calibracion && !esFechaValida(calibracion)) {
+    return { ok: false, mensaje: "La fecha de calibración no es válida." };
+  }
+  if (vencimiento && !esFechaValida(vencimiento)) {
+    return { ok: false, mensaje: "La fecha de vencimiento no es válida." };
+  }
+  if (calibracion && calibracion > hoyChile()) {
+    return { ok: false, mensaje: "La última calibración no puede ser una fecha futura." };
+  }
+  if (calibracion && vencimiento && vencimiento < calibracion) {
+    return { ok: false, mensaje: "El vencimiento tiene que ser posterior a la calibración." };
+  }
+
+  const { error } = await supabase()
+    .from("equipos")
+    .update({
+      fecha_calibracion: calibracion || null,
+      fecha_vencimiento: vencimiento || null,
+    })
+    .eq("id", entrada.equipoId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/equipos");
+  return { ok: true };
 }

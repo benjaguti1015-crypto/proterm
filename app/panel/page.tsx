@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { TablaPanel } from "@/components/TablaPanel";
 import { obtenerEquiposEstado } from "@/lib/datos";
+import { hoyChile } from "@/lib/fechas";
 
 export const dynamic = "force-dynamic";
 
@@ -11,5 +12,5 @@ export const metadata: Metadata = {
 // Pantalla pública, sin login. Es la que se muestra en la oficina.
 export default async function Panel() {
   const equipos = await obtenerEquiposEstado();
-  return <TablaPanel inicial={equipos} />;
+  return <TablaPanel inicial={equipos} hoyInicial={hoyChile()} />;
 }

@@ -1,26 +1,32 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fechaCorta, horaConSegundos } from "@/lib/fechas";
+import { estadoCalibracion, fechaLarga, textoCalibracion } from "@/lib/calibracion";
+import { fechaCorta, hoyChile, horaConSegundos } from "@/lib/fechas";
+import { puedeSalir } from "@/lib/obligatorios";
 import { CATEGORIAS, type Categoria, type EquipoEstado } from "@/lib/tipos";
 import { Estado } from "./Estado";
 
 const INTERVALO_MS = 10_000;
 
 type FiltroCategoria = "Todas" | Categoria;
-type FiltroEstado = "Todos" | "Disponibles" | "En uso";
+type FiltroEstado = "Todos" | "Disponibles" | "En uso" | "Por calibrar";
 
 const FILTROS_CATEGORIA: FiltroCategoria[] = ["Todas", ...CATEGORIAS];
-const FILTROS_ESTADO: FiltroEstado[] = ["Todos", "Disponibles", "En uso"];
+const FILTROS_ESTADO: FiltroEstado[] = ["Todos", "Disponibles", "En uso", "Por calibrar"];
 
-export function TablaPanel({ inicial }: { inicial: EquipoEstado[] }) {
+/** Lo que, si cambia, hace destacar la fila en el panel. */
+const huella = (e: EquipoEstado) => `${e.salida_id}|${e.fecha_vencimiento}`;
+
+export function TablaPanel({ inicial, hoyInicial }: { inicial: EquipoEstado[]; hoyInicial: string }) {
   const [equipos, setEquipos] = useState(inicial);
+  const [hoy, setHoy] = useState(hoyInicial);
   const [categoria, setCategoria] = useState<FiltroCategoria>("Todas");
   const [estado, setEstado] = useState<FiltroEstado>("Todos");
   const [hora, setHora] = useState("");
   const [sinConexion, setSinConexion] = useState(false);
   const [cambiados, setCambiados] = useState<Set<number>>(() => new Set());
-  const previos = useRef(new Map(inicial.map((e) => [e.id, e.salida_id])));
+  const previos = useRef(new Map(inicial.map((e) => [e.id, huella(e)])));
 
   useEffect(() => {
     let vigente = true;
@@ -36,8 +42,8 @@ export function TablaPanel({ inicial }: { inicial: EquipoEstado[] }) {
         // Destaca por un momento las filas que cambiaron de estado.
         const nuevos = new Set<number>();
         for (const equipo of datos.equipos) {
-          if (previos.current.get(equipo.id) !== equipo.salida_id) nuevos.add(equipo.id);
-          previos.current.set(equipo.id, equipo.salida_id);
+          if (previos.current.get(equipo.id) !== huella(equipo)) nuevos.add(equipo.id);
+          previos.current.set(equipo.id, huella(equipo));
         }
         if (nuevos.size > 0) {
           setCambiados(nuevos);
@@ -46,6 +52,7 @@ export function TablaPanel({ inicial }: { inicial: EquipoEstado[] }) {
         }
 
         setEquipos(datos.equipos);
+        setHoy(hoyChile());
         setHora(horaConSegundos(new Date()));
         setSinConexion(false);
       } catch {
@@ -69,17 +76,28 @@ export function TablaPanel({ inicial }: { inicial: EquipoEstado[] }) {
   }, []);
 
   const enUso = equipos.filter((e) => e.en_uso).length;
-  const disponibles = equipos.length - enUso;
+  const disponibles = equipos.filter((e) => puedeSalir(e, hoy)).length;
+  const vencidos = equipos.filter(
+    (e) => estadoCalibracion(e.fecha_vencimiento, hoy).tipo === "vencida",
+  ).length;
+  const porVencer = equipos.filter(
+    (e) => estadoCalibracion(e.fecha_vencimiento, hoy).tipo === "por_vencer",
+  ).length;
 
   const visibles = useMemo(
     () =>
       equipos
         .filter((e) => categoria === "Todas" || e.categoria === categoria)
-        .filter(
-          (e) =>
-            estado === "Todos" || (estado === "En uso" ? e.en_uso : !e.en_uso),
-        ),
-    [equipos, categoria, estado],
+        .filter((e) => {
+          if (estado === "Disponibles") return puedeSalir(e, hoy);
+          if (estado === "En uso") return e.en_uso;
+          if (estado === "Por calibrar") {
+            const tipo = estadoCalibracion(e.fecha_vencimiento, hoy).tipo;
+            return tipo === "vencida" || tipo === "por_vencer";
+          }
+          return true;
+        }),
+    [equipos, categoria, estado, hoy],
   );
 
   return (
@@ -107,6 +125,16 @@ export function TablaPanel({ inicial }: { inicial: EquipoEstado[] }) {
           <span aria-hidden className="size-3 rounded-full bg-uso" />
           {enUso} en uso
         </span>
+        {vencidos > 0 ? (
+          <span className="text-uso">
+            {vencidos === 1 ? "1 con calibración vencida" : `${vencidos} con calibración vencida`}
+          </span>
+        ) : null}
+        {porVencer > 0 ? (
+          <span className="rounded-lg bg-aviso-fondo px-2.5 text-aviso">
+            {porVencer === 1 ? "1 calibración por vencer" : `${porVencer} calibraciones por vencer`}
+          </span>
+        ) : null}
       </p>
 
       <div className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
@@ -155,11 +183,15 @@ export function TablaPanel({ inicial }: { inicial: EquipoEstado[] }) {
                   <th scope="col" className="px-4 py-3 font-semibold">Estado</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Dónde está</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Responsable</th>
-                  <th scope="col" className="py-3 pl-4 pr-5 font-semibold">Vuelve</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Vuelve</th>
+                  <th scope="col" className="py-3 pl-4 pr-5 font-semibold">Calibración</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-linea">
-                {visibles.map((e) => (
+                {visibles.map((e) => {
+                  const calibracion = estadoCalibracion(e.fecha_vencimiento, hoy);
+                  const bloqueado = e.en_uso || calibracion.tipo === "vencida";
+                  return (
                   <tr key={e.id} className={cambiados.has(e.id) ? "fila-cambio" : undefined}>
                     <td className="py-3 pl-5 pr-4">
                       <span className="placa">{e.codigo}</span>
@@ -169,25 +201,29 @@ export function TablaPanel({ inicial }: { inicial: EquipoEstado[] }) {
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-0.5 font-semibold ${
-                          e.en_uso ? "bg-uso-fondo text-uso" : "bg-libre-fondo text-libre"
+                          bloqueado ? "bg-uso-fondo text-uso" : "bg-libre-fondo text-libre"
                         }`}
                       >
                         <span
                           aria-hidden
-                          className={`size-2.5 rounded-full ${e.en_uso ? "bg-uso" : "bg-libre"}`}
+                          className={`size-2.5 rounded-full ${bloqueado ? "bg-uso" : "bg-libre"}`}
                         />
-                        {e.en_uso ? "En uso" : "Disponible"}
+                        {e.en_uso ? "En uso" : bloqueado ? "No disponible" : "Disponible"}
                       </span>
                     </td>
                     <td className="px-4 py-3 font-medium">
                       {e.en_uso ? e.furgon_nombre : <span className="text-tinta-2">Bodega</span>}
                     </td>
                     <td className="px-4 py-3">{e.responsable ?? ""}</td>
-                    <td className="py-3 pl-4 pr-5 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {e.fecha_retorno_estimada ? fechaCorta(e.fecha_retorno_estimada) : ""}
                     </td>
+                    <td className="py-3 pl-4 pr-5 whitespace-nowrap">
+                      <CeldaCalibracion calibracion={calibracion} />
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -204,7 +240,7 @@ export function TablaPanel({ inicial }: { inicial: EquipoEstado[] }) {
                   <span className="placa text-tinta">{e.codigo}</span>
                   <span>{e.categoria}</span>
                 </span>
-                <Estado equipo={e} />
+                <Estado equipo={e} hoy={hoy} />
               </li>
             ))}
           </ul>
@@ -212,4 +248,23 @@ export function TablaPanel({ inicial }: { inicial: EquipoEstado[] }) {
       )}
     </main>
   );
+}
+
+function CeldaCalibracion({ calibracion }: { calibracion: ReturnType<typeof estadoCalibracion> }) {
+  switch (calibracion.tipo) {
+    case "sin_registro":
+      return <span className="text-tinta-2">Sin registro</span>;
+    case "vigente":
+      return <span className="text-tinta-2">Hasta {fechaLarga(calibracion.vence)}</span>;
+    case "por_vencer":
+      return (
+        <span className="rounded-md bg-aviso-fondo px-2 py-0.5 font-medium text-aviso">
+          {textoCalibracion(calibracion).replace("Calibración v", "V")}
+        </span>
+      );
+    case "vencida":
+      return (
+        <span className="font-semibold text-uso">Venció el {fechaCorta(calibracion.vence)}</span>
+      );
+  }
 }
