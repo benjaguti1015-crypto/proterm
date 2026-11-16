@@ -101,9 +101,10 @@ npm run dev
 - **Certificados.** Cada equipo guarda número de certificado, laboratorio y el PDF (hasta 4 MB)
   en el bucket privado `certificados`. `/certificados/[codigo]` lo abre con un enlace temporal
   de 10 minutos. Al reemplazar un PDF, el anterior queda guardado en Storage.
-  En `docs/certificados-ejemplo/` hay certificados ficticios (marcados "sin validez") para
-  RU-SON-001, RU-SON-002, RU-CAL-001, RU-CAL-002, PM-GAS-001, PM-GAS-002 y PM-PIT-001, con
-  los mismos números y laboratorios del seed. Se suben desde `/equipos`.
+  Hay 7 certificados ficticios de ejemplo (marcados "sin validez") en
+  `public/certificados-ejemplo/`, para RU-SON-001, RU-SON-002, RU-CAL-001, RU-CAL-002,
+  PM-GAS-001, PM-GAS-002 y PM-PIT-001. Quedan asociados con `supabase/certificados-ejemplo.sql`
+  (o con el seed, que ya los incluye). Un certificado real subido desde `/equipos` los reemplaza.
 - **Reemplazo sugerido.** Si una unidad está en uso o vencida, la app sugiere la siguiente del
   mismo tipo. Si el servidor rechaza la salida, marca el reemplazo automáticamente y avisa.
 - **Selección de equipos.** Primero los obligatorios agrupados por tipo, con su avance
