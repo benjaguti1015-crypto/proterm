@@ -13,8 +13,8 @@ Next.js (App Router) + TypeScript + Tailwind, con Supabase (Postgres) y deploy e
 3. En el inicio elige el servicio, marca los equipos que se lleva, pone la fecha estimada de retorno y confirma la salida.
 4. Al volver, entra a "Devolver equipos" y marca lo que devuelve. Puede ser parcial. Cuando devuelve todo, la salida se cierra.
 5. `/panel` es público y muestra dónde está cada equipo. Se refresca solo cada 10 segundos.
-6. `/equipos` permite a los administradores actualizar las fechas de calibración. Un equipo con
-   la calibración vencida no puede salir a terreno.
+6. `/equipos` permite actualizar las fechas de calibración. Por ahora es abierta: cualquiera
+   puede verla y editarla, sin login. Un equipo con la calibración vencida no puede salir a terreno.
 
 ## Puesta en marcha
 
@@ -23,15 +23,11 @@ Next.js (App Router) + TypeScript + Tailwind, con Supabase (Postgres) y deploy e
 En el SQL Editor de Supabase, correr en este orden:
 
 1. `supabase/migrations/0001_inicial.sql`: tablas, vistas, funciones y permisos.
-2. `supabase/migrations/0002_calibracion.sql`: calibración de equipos y administradores.
+2. `supabase/migrations/0002_calibracion.sql`: calibración de equipos.
 3. `supabase/seed.sql`: datos de ejemplo.
 
-Para que alguien pueda editar calibraciones, márcalo como administrador
-(después de que haya entrado una vez a la app):
-
-```sql
-update usuarios set es_admin = true where lower(nombre) = lower('Benja');
-```
+La migración 0002 también agrega `usuarios.es_admin`. Hoy no se usa: queda lista para
+restringir `/equipos` a administradores más adelante.
 
 `seed.sql` borra todo y deja la demo en su estado inicial, así que se puede volver
 a correr para reiniciar antes de grabar. No usarlo sobre datos reales.
@@ -77,7 +73,7 @@ npm run dev
 
 - Furgones 1, 2 y 3.
 - Servicios: Material particulado (isocinético) y Ruido (acústica).
-- Usuarios Pedro y Juanito, ambos con PIN `1234`. Pedro es administrador.
+- Usuarios Pedro y Juanito, ambos con PIN `1234`.
 - Calibraciones: `PM-GAS-002` vencida hace 5 días, `RU-SON-002` vence en 12 días, el resto
   de los equipos de medición al día. Los accesorios no tienen fechas.
 - Salidas abiertas, para que el conflicto se vea de inmediato:
@@ -116,7 +112,7 @@ app/
   salida/[servicioId]/      Selección de equipos
   devolver/                 Checklist de devolución
   panel/                    Tabla pública
-  equipos/                  Calibraciones (solo administradores)
+  equipos/                  Calibraciones (abierta)
   api/panel/route.ts        Datos para el refresco del panel
 components/                 Piezas de interfaz
 lib/                        Supabase, sesión, consultas y acciones de servidor

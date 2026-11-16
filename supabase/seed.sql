@@ -89,7 +89,7 @@ from equipos e
 where e.codigo like 'RU-%' or e.codigo like 'GEN-%';
 
 -- Usuarios de ejemplo. El PIN de ambos es 1234.
--- Pedro es administrador: puede editar las calibraciones en /equipos.
+-- es_admin queda listo para cuando /equipos se restrinja a administradores.
 insert into usuarios (nombre, pin_hash, es_admin) values
   ('Pedro', '$2b$10$kgpmbcn8rE6qUwyZAma.0Okphln.r.ZB7aggtGKufLR9NrT8JuHOy', true),
   ('Juanito', '$2b$10$kgpmbcn8rE6qUwyZAma.0Okphln.r.ZB7aggtGKufLR9NrT8JuHOy', false);

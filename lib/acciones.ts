@@ -4,7 +4,6 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
-  esAdmin,
   obtenerFurgonPorCodigo,
   obtenerKit,
   obtenerSalidaAbierta,
@@ -218,7 +217,7 @@ export async function devolverEquipos(entrada: {
 }
 
 // ---------------------------------------------------------------
-// Calibración (solo administradores)
+// Calibración (por ahora abierta a cualquiera)
 // ---------------------------------------------------------------
 
 export type ResultadoCalibracion = { ok: true } | { ok: false; mensaje: string };
@@ -228,12 +227,6 @@ export async function actualizarCalibracion(entrada: {
   fechaCalibracion: string;
   fechaVencimiento: string;
 }): Promise<ResultadoCalibracion> {
-  const sesion = await leerSesion();
-  if (!sesion) return { ok: false, mensaje: "Tu sesión se cerró. Vuelve a entrar." };
-  if (!(await esAdmin(sesion.id))) {
-    return { ok: false, mensaje: "Solo un administrador puede editar calibraciones." };
-  }
-
   const calibracion = entrada.fechaCalibracion.trim();
   const vencimiento = entrada.fechaVencimiento.trim();
 

@@ -127,11 +127,3 @@ export async function obtenerItemsSalida(salidaId: number): Promise<ItemSalida[]
     devuelto_at: devuelto.get(e.id) ?? null,
   }));
 }
-
-/** Si el usuario puede editar las calibraciones. Se consulta siempre en la base. */
-export async function esAdmin(usuarioId: number): Promise<boolean> {
-  const fila: { es_admin: boolean } | null = revisar(
-    await supabase().from("usuarios").select("es_admin").eq("id", usuarioId).maybeSingle(),
-  );
-  return fila?.es_admin === true;
-}

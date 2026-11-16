@@ -107,7 +107,7 @@ export function TablaPanel({ inicial, hoyInicial }: { inicial: EquipoEstado[]; h
           <p className="font-cond text-2xl font-bold tracking-tight">ProTerm</p>
           <h1 className="text-3xl font-bold leading-tight md:text-4xl">Dónde está cada equipo</h1>
         </div>
-        <p className="tabular-nums text-tinta-2" aria-live="polite">
+        <p className="text-right tabular-nums text-tinta-2" aria-live="polite">
           {sinConexion
             ? "Sin conexión. Reintentando…"
             : hora
