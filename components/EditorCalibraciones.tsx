@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { actualizarCalibracion } from "@/lib/acciones";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { guardarCalibracion } from "@/lib/acciones";
 import { estadoCalibracion, textoCalibracion, type EstadoCalibracion } from "@/lib/calibracion";
 import type { EquipoEstado } from "@/lib/tipos";
 
@@ -115,12 +115,19 @@ function FilaCalibracion({
 }) {
   const [calibracion, setCalibracion] = useState(equipo.fecha_calibracion ?? "");
   const [vencimiento, setVencimiento] = useState(equipo.fecha_vencimiento ?? "");
+  const [numero, setNumero] = useState(equipo.certificado_numero ?? "");
+  const [laboratorio, setLaboratorio] = useState(equipo.certificado_laboratorio ?? "");
+  const [archivo, setArchivo] = useState<File | null>(null);
   const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null);
   const [guardando, iniciar] = useTransition();
+  const entradaArchivo = useRef<HTMLInputElement>(null);
 
   const cambio =
+    archivo !== null ||
     calibracion !== (equipo.fecha_calibracion ?? "") ||
-    vencimiento !== (equipo.fecha_vencimiento ?? "");
+    vencimiento !== (equipo.fecha_vencimiento ?? "") ||
+    numero !== (equipo.certificado_numero ?? "") ||
+    laboratorio !== (equipo.certificado_laboratorio ?? "");
 
   // Al cargar una calibración nueva, propone un año de validez si no hay vencimiento posterior.
   function alCambiarCalibracion(valor: string) {
@@ -136,15 +143,27 @@ function FilaCalibracion({
 
   function guardar() {
     setMensaje(null);
+    if (archivo && archivo.size > 4 * 1024 * 1024) {
+      setMensaje({ ok: false, texto: "El PDF pesa más de 4 MB. Comprímelo o escanéalo con menos resolución." });
+      return;
+    }
+    const datos = new FormData();
+    datos.set("equipoId", String(equipo.id));
+    datos.set("fechaCalibracion", calibracion);
+    datos.set("fechaVencimiento", vencimiento);
+    datos.set("numero", numero);
+    datos.set("laboratorio", laboratorio);
+    if (archivo) datos.set("archivo", archivo);
+
     iniciar(async () => {
-      const resultado = await actualizarCalibracion({
-        equipoId: equipo.id,
-        fechaCalibracion: calibracion,
-        fechaVencimiento: vencimiento,
-      });
+      const resultado = await guardarCalibracion(datos);
+      if (resultado.ok) {
+        setArchivo(null);
+        if (entradaArchivo.current) entradaArchivo.current.value = "";
+      }
       setMensaje(
         resultado.ok
-          ? { ok: true, texto: "Fechas guardadas." }
+          ? { ok: true, texto: archivo ? "Datos y certificado guardados." : "Datos guardados." }
           : { ok: false, texto: resultado.mensaje },
       );
     });
@@ -190,6 +209,64 @@ function FilaCalibracion({
             }}
           />
         </label>
+        <label className="grid gap-1.5">
+          <span className="font-semibold">N° de certificado</span>
+          <input
+            className="campo px-3 text-base"
+            type="text"
+            value={numero}
+            maxLength={80}
+            placeholder="Ej: CAL-2026-0412"
+            onChange={(e) => {
+              setNumero(e.target.value);
+              setMensaje(null);
+            }}
+          />
+        </label>
+        <label className="grid gap-1.5">
+          <span className="font-semibold">Laboratorio</span>
+          <input
+            className="campo px-3 text-base"
+            type="text"
+            value={laboratorio}
+            maxLength={120}
+            placeholder="Quién calibró"
+            onChange={(e) => {
+              setLaboratorio(e.target.value);
+              setMensaje(null);
+            }}
+          />
+        </label>
+      </div>
+
+      <div className="mt-4 rounded-xl border-2 border-dashed border-linea p-3">
+        <p className="font-semibold">Certificado en PDF</p>
+        {equipo.tiene_certificado ? (
+          <a
+            href={`/certificados/${encodeURIComponent(equipo.codigo)}`}
+            target="_blank"
+            rel="noopener"
+            className="mt-1 inline-flex min-h-11 items-center font-medium underline underline-offset-4"
+          >
+            Ver el certificado actual
+          </a>
+        ) : (
+          <p className="mt-1 text-tinta-2">Todavía no hay un certificado cargado.</p>
+        )}
+        <label className="btn btn-secundario btn-chico mt-2 w-full">
+          {archivo ? `Elegido: ${archivo.name}` : equipo.tiene_certificado ? "Reemplazar PDF" : "Subir PDF"}
+          <input
+            ref={entradaArchivo}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="sr-only"
+            onChange={(e) => {
+              setArchivo(e.target.files?.[0] ?? null);
+              setMensaje(null);
+            }}
+          />
+        </label>
+        <p className="mt-1.5 text-sm text-tinta-2">Máximo 4 MB. El certificado anterior queda guardado.</p>
       </div>
 
       {mensaje ? (

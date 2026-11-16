@@ -1,7 +1,7 @@
 -- ProTerm: datos de ejemplo (ficticios).
 -- Correr en el SQL Editor de Supabase después de la migración.
 --
--- Requiere haber corrido las migraciones 0001 y 0002.
+-- Requiere haber corrido las migraciones 0001, 0002 y 0003.
 --
 -- OJO: este script BORRA todo lo que haya en las tablas y deja la demo
 -- en su estado inicial. Sirve para reiniciar antes de grabar el video.
@@ -67,6 +67,16 @@ set
   fecha_calibracion = (now() at time zone 'America/Santiago')::date - 353,
   fecha_vencimiento = (now() at time zone 'America/Santiago')::date + 12
 where codigo = 'RU-SON-002';
+
+-- Datos de certificado de ejemplo (laboratorios ficticios). Los PDF se suben desde /equipos.
+update equipos
+set
+  certificado_numero = 'CAL-' || to_char(fecha_calibracion, 'YYYY') || '-' || lpad(id::text, 4, '0'),
+  certificado_laboratorio = case
+    when codigo like 'RU-%' then 'Laboratorio de Acústica Sur'
+    else 'Metrología Ambiental Centro'
+  end
+where fecha_calibracion is not null;
 
 -- Kit de material particulado: equipos PM + compartidos.
 -- Obligatorios: consola, sonda, boquillas, Pitot y analizador de gases.

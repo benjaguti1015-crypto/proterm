@@ -18,7 +18,8 @@ import {
   leerSesion,
 } from "./sesion";
 import { supabase } from "./supabase";
-import type { Conflicto, VencidoRechazado } from "./tipos";
+import { reemplazoPara } from "./reemplazo";
+import type { Conflicto, EquipoKit, VencidoRechazado } from "./tipos";
 
 // ---------------------------------------------------------------
 // Login
@@ -105,11 +106,28 @@ export async function elegirFurgon(formData: FormData): Promise<void> {
 // Salida
 // ---------------------------------------------------------------
 
+/** Equipo rechazado al confirmar y la unidad que se marcó en su lugar, si había. */
+export type Reemplazo = { codigo: string; reemplazo: { id: number; codigo: string } | null };
+
 export type ResultadoSalida =
   | { tipo: "faltantes"; faltantes: string[] }
-  | { tipo: "conflicto"; conflictos: Conflicto[] }
-  | { tipo: "vencidos"; vencidos: VencidoRechazado[] }
+  | { tipo: "conflicto"; conflictos: Conflicto[]; reemplazos: Reemplazo[]; kit: EquipoKit[] }
+  | { tipo: "vencidos"; vencidos: VencidoRechazado[]; reemplazos: Reemplazo[]; kit: EquipoKit[] }
   | { tipo: "error"; mensaje: string };
+
+/** Busca la siguiente unidad disponible del mismo tipo para cada equipo rechazado. */
+async function buscarReemplazos(servicioId: number, rechazados: string[], elegidos: number[]) {
+  const kit = await obtenerKit(servicioId);
+  const hoy = hoyChile();
+  const ocupados = new Set(elegidos);
+  const reemplazos: Reemplazo[] = rechazados.map((codigo) => {
+    const equipo = kit.find((e) => e.codigo === codigo);
+    const otro = equipo ? reemplazoPara(equipo, kit, hoy, ocupados) : null;
+    if (otro) ocupados.add(otro.id);
+    return { codigo, reemplazo: otro ? { id: otro.id, codigo: otro.codigo } : null };
+  });
+  return { kit, reemplazos };
+}
 
 export async function confirmarSalida(entrada: {
   servicioId: number;
@@ -152,12 +170,24 @@ export async function confirmarSalida(entrada: {
 
   if (!data.ok) {
     switch (data.error) {
-      case "conflicto":
-        revalidatePath("/salida/[servicioId]", "page");
-        return { tipo: "conflicto", conflictos: data.conflictos as Conflicto[] };
-      case "vencidos":
-        revalidatePath("/salida/[servicioId]", "page");
-        return { tipo: "vencidos", vencidos: data.vencidos as VencidoRechazado[] };
+      case "conflicto": {
+        const conflictos = data.conflictos as Conflicto[];
+        const extra = await buscarReemplazos(
+          entrada.servicioId,
+          conflictos.map((c) => c.codigo),
+          equipoIds,
+        );
+        return { tipo: "conflicto", conflictos, ...extra };
+      }
+      case "vencidos": {
+        const vencidos = data.vencidos as VencidoRechazado[];
+        const extra = await buscarReemplazos(
+          entrada.servicioId,
+          vencidos.map((v) => v.codigo),
+          equipoIds,
+        );
+        return { tipo: "vencidos", vencidos, ...extra };
+      }
       case "furgon_ocupado":
         return {
           tipo: "error",
@@ -222,13 +252,21 @@ export async function devolverEquipos(entrada: {
 
 export type ResultadoCalibracion = { ok: true } | { ok: false; mensaje: string };
 
-export async function actualizarCalibracion(entrada: {
-  equipoId: number;
-  fechaCalibracion: string;
-  fechaVencimiento: string;
-}): Promise<ResultadoCalibracion> {
-  const calibracion = entrada.fechaCalibracion.trim();
-  const vencimiento = entrada.fechaVencimiento.trim();
+const MAX_PDF = 4 * 1024 * 1024;
+
+/**
+ * Guarda las fechas de calibración y los datos del certificado de un equipo.
+ * Si viene un PDF, lo sube a Storage y reemplaza al anterior.
+ */
+export async function guardarCalibracion(formData: FormData): Promise<ResultadoCalibracion> {
+  const equipoId = Number(formData.get("equipoId"));
+  const calibracion = String(formData.get("fechaCalibracion") ?? "").trim();
+  const vencimiento = String(formData.get("fechaVencimiento") ?? "").trim();
+  const numero = String(formData.get("numero") ?? "").trim().slice(0, 80);
+  const laboratorio = String(formData.get("laboratorio") ?? "").trim().slice(0, 120);
+  const archivo = formData.get("archivo");
+
+  if (!Number.isInteger(equipoId)) return { ok: false, mensaje: "Equipo no válido." };
 
   if (calibracion && !esFechaValida(calibracion)) {
     return { ok: false, mensaje: "La fecha de calibración no es válida." };
@@ -243,15 +281,47 @@ export async function actualizarCalibracion(entrada: {
     return { ok: false, mensaje: "El vencimiento tiene que ser posterior a la calibración." };
   }
 
-  const { error } = await supabase()
+  const { data: equipo, error: errorEquipo } = await supabase()
     .from("equipos")
-    .update({
-      fecha_calibracion: calibracion || null,
-      fecha_vencimiento: vencimiento || null,
-    })
-    .eq("id", entrada.equipoId);
+    .select("codigo")
+    .eq("id", equipoId)
+    .maybeSingle();
+  if (errorEquipo) throw new Error(errorEquipo.message);
+  if (!equipo) return { ok: false, mensaje: "Ese equipo ya no existe." };
+
+  const cambios: Record<string, string | null> = {
+    fecha_calibracion: calibracion || null,
+    fecha_vencimiento: vencimiento || null,
+    certificado_numero: numero || null,
+    certificado_laboratorio: laboratorio || null,
+  };
+
+  if (archivo instanceof File && archivo.size > 0) {
+    if (archivo.size > MAX_PDF) {
+      return { ok: false, mensaje: "El PDF pesa más de 4 MB. Comprímelo o escanéalo con menos resolución." };
+    }
+    const bytes = new Uint8Array(await archivo.arrayBuffer());
+    // Un PDF siempre empieza con "%PDF".
+    if (String.fromCharCode(...bytes.slice(0, 4)) !== "%PDF") {
+      return { ok: false, mensaje: "El archivo no es un PDF. Sube el certificado en PDF." };
+    }
+
+    // Cada subida queda con su propio nombre: los certificados anteriores no se borran.
+    const ruta = `${equipo.codigo}/${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`;
+    const { error: errorSubida } = await supabase()
+      .storage.from("certificados")
+      .upload(ruta, bytes, { contentType: "application/pdf", upsert: false });
+    if (errorSubida) {
+      return { ok: false, mensaje: `No se pudo subir el PDF: ${errorSubida.message}` };
+    }
+    cambios.certificado_path = ruta;
+    cambios.certificado_subido_at = new Date().toISOString();
+  }
+
+  const { error } = await supabase().from("equipos").update(cambios).eq("id", equipoId);
   if (error) throw new Error(error.message);
 
   revalidatePath("/equipos");
+  revalidatePath("/panel");
   return { ok: true };
 }

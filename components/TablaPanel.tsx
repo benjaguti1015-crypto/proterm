@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { estadoCalibracion, fechaLarga, textoCalibracion } from "@/lib/calibracion";
 import { fechaCorta, hoyChile, horaConSegundos } from "@/lib/fechas";
 import { puedeSalir } from "@/lib/obligatorios";
+import { reemplazoPara } from "@/lib/reemplazo";
 import { CATEGORIAS, type Categoria, type EquipoEstado } from "@/lib/tipos";
 import { Estado } from "./Estado";
 
@@ -219,7 +220,13 @@ export function TablaPanel({ inicial, hoyInicial }: { inicial: EquipoEstado[]; h
                       {e.fecha_retorno_estimada ? fechaCorta(e.fecha_retorno_estimada) : ""}
                     </td>
                     <td className="py-3 pl-4 pr-5 whitespace-nowrap">
-                      <CeldaCalibracion calibracion={calibracion} />
+                      <CeldaCalibracion
+                        calibracion={calibracion}
+                        equipo={e}
+                        reemplazo={
+                          calibracion.tipo === "vencida" ? reemplazoPara(e, equipos, hoy)?.codigo : undefined
+                        }
+                      />
                     </td>
                   </tr>
                   );
@@ -241,6 +248,14 @@ export function TablaPanel({ inicial, hoyInicial }: { inicial: EquipoEstado[]; h
                   <span>{e.categoria}</span>
                 </span>
                 <Estado equipo={e} hoy={hoy} />
+                <ExtrasCalibracion
+                  equipo={e}
+                  reemplazo={
+                    estadoCalibracion(e.fecha_vencimiento, hoy).tipo === "vencida"
+                      ? reemplazoPara(e, equipos, hoy)?.codigo
+                      : undefined
+                  }
+                />
               </li>
             ))}
           </ul>
@@ -250,7 +265,44 @@ export function TablaPanel({ inicial, hoyInicial }: { inicial: EquipoEstado[]; h
   );
 }
 
-function CeldaCalibracion({ calibracion }: { calibracion: ReturnType<typeof estadoCalibracion> }) {
+/** Reemplazo sugerido para un equipo vencido y enlace a su certificado. */
+function ExtrasCalibracion({ equipo, reemplazo }: { equipo: EquipoEstado; reemplazo?: string }) {
+  if (!reemplazo && !equipo.tiene_certificado) return null;
+  return (
+    <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      {reemplazo ? <span className="font-semibold">Usar {reemplazo} en su lugar</span> : null}
+      {equipo.tiene_certificado ? (
+        <a
+          href={`/certificados/${encodeURIComponent(equipo.codigo)}`}
+          target="_blank"
+          rel="noopener"
+          className="font-medium underline underline-offset-4"
+        >
+          Ver certificado
+        </a>
+      ) : null}
+    </span>
+  );
+}
+
+function CeldaCalibracion({
+  calibracion,
+  equipo,
+  reemplazo,
+}: {
+  calibracion: ReturnType<typeof estadoCalibracion>;
+  equipo: EquipoEstado;
+  reemplazo?: string;
+}) {
+  return (
+    <span className="grid justify-items-start gap-1">
+      <TextoCalibracion calibracion={calibracion} />
+      <ExtrasCalibracion equipo={equipo} reemplazo={reemplazo} />
+    </span>
+  );
+}
+
+function TextoCalibracion({ calibracion }: { calibracion: ReturnType<typeof estadoCalibracion> }) {
   switch (calibracion.tipo) {
     case "sin_registro":
       return <span className="text-tinta-2">Sin registro</span>;

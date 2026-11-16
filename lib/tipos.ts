@@ -26,6 +26,9 @@ export type EquipoEstado = {
   fecha_retorno_estimada: string | null;
   fecha_calibracion: string | null;
   fecha_vencimiento: string | null;
+  certificado_numero: string | null;
+  certificado_laboratorio: string | null;
+  tiene_certificado: boolean;
 };
 
 export type EquipoKit = EquipoEstado & { obligatorio: boolean };

@@ -24,7 +24,8 @@ En el SQL Editor de Supabase, correr en este orden:
 
 1. `supabase/migrations/0001_inicial.sql`: tablas, vistas, funciones y permisos.
 2. `supabase/migrations/0002_calibracion.sql`: calibración de equipos.
-3. `supabase/seed.sql`: datos de ejemplo.
+3. `supabase/migrations/0003_certificados.sql`: certificado adjunto y bucket privado `certificados` en Storage.
+4. `supabase/seed.sql`: datos de ejemplo.
 
 La migración 0002 también agrega `usuarios.es_admin`. Hoy no se usa: queda lista para
 restringir `/equipos` a administradores más adelante.
@@ -97,6 +98,14 @@ npm run dev
   basta con llevar uno. Si falta un tipo obligatorio, la app avisa y pide confirmación.
 - **Sesión.** Cookie firmada con el nombre del responsable. El PIN se guarda con hash
   (bcryptjs). No es seguridad real: solo identifica a quien registra.
+- **Certificados.** Cada equipo guarda número de certificado, laboratorio y el PDF (hasta 4 MB)
+  en el bucket privado `certificados`. `/certificados/[codigo]` lo abre con un enlace temporal
+  de 10 minutos. Al reemplazar un PDF, el anterior queda guardado en Storage.
+  `docs/certificado-ejemplo.pdf` es un certificado ficticio para probar la carga.
+- **Reemplazo sugerido.** Si una unidad está en uso o vencida, la app sugiere la siguiente del
+  mismo tipo. Si el servidor rechaza la salida, marca el reemplazo automáticamente y avisa.
+- **Selección de equipos.** Primero los obligatorios agrupados por tipo, con su avance
+  ("2 de 2 listos"), después los recomendados del kit y al final la fecha de retorno.
 - **Calibración.** `fecha_calibracion` es la última calibración y `fecha_vencimiento` hasta
   cuándo es válida (inclusive). Un equipo vencido aparece bloqueado al elegir equipos, y
   `crear_salida` lo rechaza también en la base de datos. Se avisa 30 días antes del vencimiento.
@@ -112,7 +121,8 @@ app/
   salida/[servicioId]/      Selección de equipos
   devolver/                 Checklist de devolución
   panel/                    Tabla pública
-  equipos/                  Calibraciones (abierta)
+  equipos/                  Calibraciones y certificados (abierta)
+  certificados/[codigo]/    Abre el PDF del certificado
   api/panel/route.ts        Datos para el refresco del panel
 components/                 Piezas de interfaz
 lib/                        Supabase, sesión, consultas y acciones de servidor
